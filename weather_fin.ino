@@ -31,6 +31,124 @@ int   iconrate = 2;   //32*32圖示的倍率,2=64*64
 // 任務控制
 TaskHandle_t weatherTaskHandle;
 
+// 基礎：太陽 (可縮放)
+void drawSun(int x, int y, float scale) {
+    int cx = x + (16 * scale);
+    int cy = y + (14 * scale);
+    int r  = 6 * scale;
+    tft.fillCircle(cx, cy, r, ST77XX_ORANGE);
+    
+    for (int i = 0; i < 360; i += 45) {
+        float a = i * PI / 180;
+        int x1 = cx + cos(a) * (8 * scale);
+        int y1 = cy + sin(a) * (8 * scale);
+        int x2 = cx + cos(a) * (13 * scale);
+        int y2 = cy + sin(a) * (13 * scale);
+        tft.drawLine(x1, y1, x2, y2, ST77XX_YELLOW);
+    }
+}
+
+// 基礎：雲朵 (可縮放)
+void drawCloud(int x, int y, float scale, uint16_t color) {
+    tft.fillCircle(x + (10 * scale), y + (18 * scale), 5 * scale, color);
+    tft.fillCircle(x + (16 * scale), y + (15 * scale), 7 * scale, color);
+    tft.fillCircle(x + (22 * scale), y + (18 * scale), 5 * scale, color);
+    tft.fillRect(x + (10 * scale), y + (18 * scale), 12 * scale, 6 * scale, color);
+}
+
+// 基礎：雨滴 (可縮放)
+void drawRainDrops(int x, int y, float scale, int count) {
+    for (int i = 0; i < count; i++) {
+        int rx = x + (10 * scale) + (i * 6 * scale);
+        int ry = y + (24 * scale);
+        tft.drawLine(rx, ry, rx - (2 * scale), ry + (4 * scale), 0x5DFF);
+    }
+}
+
+
+// 基礎：雪花 (32x32)
+void drawSnowFlakes(int x, int y, float s) {
+  tft.drawPixel(x+12*s, y+25*s, ST77XX_WHITE);
+  tft.drawPixel(x+16*s, y+27*s, ST77XX_WHITE);
+  tft.drawPixel(x+20*s, y+25*s, ST77XX_WHITE);
+}
+
+// 基礎：閃電 (可縮放)
+void drawLightning(int x, int y, float scale) {
+    int cx = x + (16 * scale);
+    int cy = y + (18 * scale);
+    tft.drawLine(cx, cy, cx - (3 * scale), cy + (5 * scale), ST77XX_YELLOW);
+    tft.drawLine(cx - (3 * scale), cy + (5 * scale), cx + (1 * scale), cy + (5 * scale), ST77XX_YELLOW);
+    tft.drawLine(cx + (1 * scale), cy + (5 * scale), cx - (2 * scale), cy + (10 * scale), ST77XX_YELLOW);
+}
+
+// 基礎：霧線 (32x32)
+void drawFogLines(int x, int y, float scale) {
+  for (int i = 0; i < 3; i++) {
+    tft.drawFastHLine(x + 8* scale, y +( 14 + i * 4)* scale, 16* scale, 0xAD55);
+  }
+}
+
+void displayWeather(int code, int x, int y, float scale) {
+    // 自動計算背景清除區域 (基礎 32 * 倍率)
+    int size = 32 * scale;
+//    tft.fillRect(x, y, size, size, ST77XX_BLACK);
+    
+    switch (code) {
+        case 0: // Clear sky
+            drawSun(x, y, scale);
+            break;
+
+        case 1: case 2: // Partly cloudy
+            drawSun(x + (4 * scale), y - (4 * scale), scale);
+            drawCloud(x, y, scale, ST77XX_WHITE);
+            break;
+
+        case 3: // Overcast
+            drawCloud(x, y, scale, 0xAD55);
+            break;
+            
+        case 45: case 48: // Fog
+            drawFogLines(x, y, scale);
+            break;
+
+        case 51: case 53: case 55:
+        case 61: case 63: case 65: // Rain
+            drawCloud(x, y, scale, ST77XX_WHITE);
+            drawRainDrops(x, y, scale, (code % 10 == 5) ? 3 : 2);
+            break;
+    case 56: case 57: // Freezing Drizzle
+    case 66: case 67: // Freezing Rain
+    case 71: case 73: case 75: // Snow fall
+    case 77: // Snow grains
+      drawCloud(x, y, scale, ST77XX_WHITE);
+      drawSnowFlakes(x, y, scale);
+      break;
+
+    case 80: case 81: case 82: // Rain showers
+      drawSun(x + (4 * scale), y - (4 * scale), scale);
+      drawCloud(x, y, scale, ST77XX_WHITE);
+      drawRainDrops(x, y, scale, 2);
+      break;
+
+    case 85: case 86: // Snow showers
+      drawSun(x + (4 * scale), y - (4 * scale), scale);
+      drawCloud(x, y, scale, ST77XX_WHITE);
+      drawSnowFlakes(x, y, scale);
+      break;
+
+        case 95: case 96: case 99: // Thunderstorm
+            drawCloud(x, y, scale, 0x738E);
+            drawLightning(x, y, scale);
+            break;
+            
+        default:
+            tft.setCursor(x, y + 10);
+            tft.print("N/A");
+            break;
+    }
+}
+
 // 模擬圖示繪製 (簡化版)
 void drawWeatherIcon(int x, int y, String weatherType) {
     if (weatherType == "Sunny") {
@@ -166,7 +284,7 @@ String url = String("https://api.open-meteo.com/v1/forecast")
 //                Serial.println(payload);
                 int code = doc["current"]["weather_code"];
                 iconrate = 2;
-
+/*
                 switch(code){
                   case 0 ...3://晴天，主要晴朗,部分多雲,陰天
                     drawWeatherIcon(160, 40, "Sunny"); 
@@ -178,6 +296,8 @@ String url = String("https://api.open-meteo.com/v1/forecast")
                     drawWeatherIcon(160, 40, "Rain"); 
                     break;  
                 }   //end switch
+*/                
+                displayWeather(code, 160, 40, 2.0);
 //======================預測三日天氣顯示================================================
 // --- 預報顯示區設定 ---
 int screenWidth = tft.width();
@@ -235,9 +355,10 @@ for (int i = 0; i < 3; i++) {
 
     // 5. 圖示 (放在最下方)
     // 注意：圖示 X 座標通常是圖形中心，故設在欄位中央
+    
     int iconX = colX + (colWidth / 3); 
     int iconY = startY + 5 + lineSpacing * 4 + 10;
-    
+/*    
     const char* iconName;
     if (dayCode <= 3) iconName = "Sunny";
     else if (dayCode <= 55) iconName = "Cloud";
@@ -245,6 +366,11 @@ for (int i = 0; i < 3; i++) {
     iconrate = 1;    
     // 確保在畫完背景色後才呼叫圖示函式
     drawWeatherIcon(iconX, iconY, iconName);
+*/    
+// 在座標 (10, 10) 顯示 Thunderstorm (95)
+displayWeather(dayCode, iconX, iconY, 1.0); 
+
+    
 }
 
 //===============================================
