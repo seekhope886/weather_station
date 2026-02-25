@@ -7,4 +7,4 @@
  *   2026.02.25
  *   process: weather_fin_1306.ino
  *   esp32 c3 super mini + SSD1306 128*63 Oled
- *   
+ *   <img src="[https://example.com/image.png](https://github.com/seekhope886/weather_station/blob/main/IMG_20260225_113100.jpg?raw=true)" width="50%">
